@@ -14,11 +14,14 @@ import scala.collection.JavaConverters._
 class ActionClickJoinFunction(clickTtl: Long, actionTtl: Long)
     extends CoProcessFunction[Action, Click, EnrichedAction] {
 
-  lazy val storedClickState: ValueState[Click] =
-    getRuntimeContext.getState(new ValueStateDescriptor[Click]("clickState", createTypeInformation[Click]))
+  lazy val bufferedClickState: ValueState[Click] =
+    getRuntimeContext.getState(new ValueStateDescriptor[Click]("click", createTypeInformation[Click]))
 
-  lazy val storedActionsState: ListState[Action] =
-    getRuntimeContext.getListState(new ListStateDescriptor[Action]("actionState", createTypeInformation[Action]))
+  lazy val clickExpireTimestamp: ValueState[Long] =
+    getRuntimeContext.getState(new ValueStateDescriptor[Long]("clickExpireTimestamp", createTypeInformation[Long]))
+
+  lazy val bufferedActionsState: ListState[Action] =
+    getRuntimeContext.getListState(new ListStateDescriptor[Action]("actions", createTypeInformation[Action]))
 
   override def processElement1(
       action: Action,
