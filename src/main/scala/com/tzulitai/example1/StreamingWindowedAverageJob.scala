@@ -23,9 +23,9 @@ object StreamingWindowedAverageJob {
     val PERIOD_MS = 100
 
     // initial data - just timestamped messages
-    val timestampSource = env.addSource(new TimestampedSawtoothSource(PERIOD_MS, SLOWDOWN_FACTOR, 10))
+    val sawtoothSource = env.addSource(new TimestampedSawtoothSource(PERIOD_MS, SLOWDOWN_FACTOR, 10))
 
-    val stream = timestampSource
+    val stream = sawtoothSource
       .map(x => DataPoint(x.key, x.timestamp, x.value * 2 * Math.PI)) // sine wave
       .keyBy(_.key)
       .timeWindow(Time.seconds(1))
