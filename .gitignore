@@ -1,3 +1,4 @@
 .idea/
 appier-flink-workshop.iml
 target/
+dependency-reduced-pom.xml
