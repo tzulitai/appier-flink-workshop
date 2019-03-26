@@ -1,14 +1,14 @@
-package com.tzulitai.example3
+package com.tzulitai.example3.solution
 
 import java.util.{Collections, PriorityQueue}
 
-import com.tzulitai.MissingSolutionException
+import com.tzulitai.example3.{Customer, EnrichedTrade, Trade}
 import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
-import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.functions.co.CoProcessFunction
+import org.apache.flink.streaming.api.scala._
 import org.apache.flink.util.Collector
 
-class EventTimeJoinFunction extends CoProcessFunction[Trade, Customer, EnrichedTrade] {
+class EventTimeJoinFunctionSolution extends CoProcessFunction[Trade, Customer, EnrichedTrade] {
 
   lazy val tradeBufferState: ValueState[PriorityQueue[EnrichedTrade]] =
     getRuntimeContext.getState(
@@ -33,7 +33,12 @@ class EventTimeJoinFunction extends CoProcessFunction[Trade, Customer, EnrichedT
 
     System.out.println("Received " + trade.toString)
 
-    throw new MissingSolutionException
+    if (trade.timestamp >= ctx.timerService().currentWatermark()) {
+      val enrichedTrade = joinWithCustomerInfo(trade)
+      collector.collect(enrichedTrade)
+      bufferPrematureEnrichedTrade(enrichedTrade)
+      ctx.timerService().registerEventTimeTimer(trade.timestamp)
+    }
   }
 
   override def processElement2(
@@ -43,7 +48,7 @@ class EventTimeJoinFunction extends CoProcessFunction[Trade, Customer, EnrichedT
 
     System.out.println("Received " + customer.toString)
 
-    throw new MissingSolutionException
+    updateCustomerData(customer)
   }
 
   override def onTimer(
@@ -51,7 +56,23 @@ class EventTimeJoinFunction extends CoProcessFunction[Trade, Customer, EnrichedT
       ctx: CoProcessFunction[Trade, Customer, EnrichedTrade]#OnTimerContext,
       collector: Collector[EnrichedTrade]): Unit = {
 
-    throw new MissingSolutionException
+    val currentWatermark = ctx.timerService().currentWatermark()
+
+    val bufferedTrades = tradeBufferState.value()
+
+    while ({
+      val lastEmittedTrade = bufferedTrades.peek()
+      lastEmittedTrade != null && lastEmittedTrade.trade.timestamp <= currentWatermark
+    }) {
+      val trade = removePrematureEnrichedTrade()
+
+      val newEnrichedTrade = joinWithCustomerInfo(trade.trade)
+      if (!newEnrichedTrade.equals(trade)) {
+        collector.collect(newEnrichedTrade)
+      }
+    }
+
+    purgeBufferedCustomerDataOlderThanEventTime(currentWatermark)
   }
 
   // ------------------------------------------------------------------------------------
