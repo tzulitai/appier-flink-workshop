@@ -58,10 +58,8 @@ class EventTimeJoinFunctionSolution extends CoProcessFunction[Trade, Customer, E
 
     val currentWatermark = ctx.timerService().currentWatermark()
 
-    val bufferedTrades = tradeBufferState.value()
-
     while ({
-      val lastEmittedTrade = bufferedTrades.peek()
+      val lastEmittedTrade = peekPrematureEnrichedTrade()
       lastEmittedTrade != null && lastEmittedTrade.trade.timestamp <= currentWatermark
     }) {
       val trade = removePrematureEnrichedTrade()
@@ -121,6 +119,14 @@ class EventTimeJoinFunctionSolution extends CoProcessFunction[Trade, Customer, E
     tradeBuffer.add(enrichedTrade)
 
     tradeBufferState.update(tradeBuffer)
+  }
+
+  /**
+    * Returns the last prematurely enriched trade, without removing it from buffer.
+    */
+  def peekPrematureEnrichedTrade(): EnrichedTrade = {
+    val tradeBuffer = tradeBufferState.value()
+    tradeBuffer.peek()
   }
 
   /**

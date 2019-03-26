@@ -103,6 +103,14 @@ class EventTimeJoinFunction extends CoProcessFunction[Trade, Customer, EnrichedT
   }
 
   /**
+    * Returns the last prematurely enriched trade, without removing it from buffer.
+    */
+  def peekPrematureEnrichedTrade(): EnrichedTrade = {
+    val tradeBuffer = tradeBufferState.value()
+    tradeBuffer.peek()
+  }
+
+  /**
     * Gets and removes the last prematurely enriched trade from the enriched trade buffer.
     */
   def removePrematureEnrichedTrade(): EnrichedTrade = {
